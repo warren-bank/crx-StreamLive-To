@@ -48,7 +48,82 @@ const payload_channels = function() {
   })
 }
 
-const payload_view = function(){
+const payload_view_helpers = {}
+
+/*
+ ******************
+ * helper function:
+ *   - needs to be called from Chrome DevTools console
+ *     * Console Utilities API: getEventListeners()
+ *         https://developers.google.com/web/tools/chrome-devtools/console/utilities#geteventlistenersobject
+ *   - usage:
+ *         removeEventListeners(window, ['mousedown']) || console.log('warning: unable to removeEventListeners')
+ ******************
+ */
+payload_view_helpers['removeEventListeners'] = function(target, types=['blur','change','click','contextmenu','dblclick','error','focus','focusin','focusout','keydown','keypress','keyup','load','mousedown','mouseenter','mouseleave','mousemove','mouseout','mouseover','mouseup','resize','scroll','select','submit','unload']) {
+  // sanity checks
+  if (!target || !Array.isArray(types)) return false
+  if (!(
+    (target instanceof HTMLElement) || (target === window) || (target === document)
+  )) return false
+  if (!window.getEventListeners) return false
+  if (!target.removeEventListener) return false
+
+  let listeners = window.getEventListeners(target) || {}
+
+  types.forEach(type => {
+    let events = listeners[type]
+    if (Array.isArray(events)) {
+      events.forEach(e => {
+        let {listener, useCapture} = e
+        target.removeEventListener(type, listener, useCapture)
+      })
+    }
+  })
+
+  return true
+}
+
+/*
+ ******************
+ * helper function:
+ *   - used to make an element responsive to window resizing
+ *   - the height of the element will always be the full client viewport
+ ******************
+ */
+payload_view_helpers['maintainFullHeight'] = function(css_selector) {
+  const resizeElement = function(){
+    let body_height   = document.body.clientHeight
+    let container     = document.querySelector(css_selector)
+
+    container.style.height = body_height + 'px'
+    container.style.setProperty('height', (body_height + 'px'), 'important')
+  }
+
+  resizeElement()
+  window.onresize = resizeElement
+}
+
+/*
+ ******************
+ * meta helper function:
+ *   - inject helper functions into content window
+ ******************
+ */
+payload_view_helpers['INJECT'] = function() {
+  inject_function(
+    payload_view_helpers['removeEventListeners'],
+    'removeEventListeners',
+    false
+  )
+  inject_function(
+    payload_view_helpers['maintainFullHeight'],
+    'maintainFullHeight',
+    false
+  )
+}
+
+const payload_view_clappr = function(){
   /*
    * docs:
    * =====
@@ -108,54 +183,12 @@ const payload_view = function(){
            }
         });
 
-        function resizePlayer(){
-          let body_height = document.body.clientHeight
-          let container   = document.querySelector('body > div > div#container > div[data-player]')
-
-          container.style.height = body_height + 'px !important'
-        }
-
-        resizePlayer();
-        window.onresize = resizePlayer;
+        window['maintainFullHeight']('body > div > div#container > div[data-player]')
 
         p2pml.hlsjs.initClapprPlayer(player);
       } else {
           document.write("Not supported :(");
       }
-    }
-    // ---------------------------------------------
-    /*
-     ******************
-     * helper function:
-     *   - needs to be called from Chrome DevTools console
-     *     * Console Utilities API: getEventListeners()
-     *         https://developers.google.com/web/tools/chrome-devtools/console/utilities#geteventlistenersobject
-     *   - usage:
-     *         removeEventListeners(window, ['mousedown']) || console.log('warning: unable to removeEventListeners')
-     ******************
-     */
-    new_js['removeEventListeners'] = function(target, types=['blur','change','click','contextmenu','dblclick','error','focus','focusin','focusout','keydown','keypress','keyup','load','mousedown','mouseenter','mouseleave','mousemove','mouseout','mouseover','mouseup','resize','scroll','select','submit','unload']) {
-      // sanity checks
-      if (!target || !Array.isArray(types)) return false
-      if (!(
-        (target instanceof HTMLElement) || (target === window) || (target === document)
-      )) return false
-      if (!window.getEventListeners) return false
-      if (!target.removeEventListener) return false
-
-      let listeners = window.getEventListeners(target) || {}
-
-      types.forEach(type => {
-        let events = listeners[type]
-        if (Array.isArray(events)) {
-          events.forEach(e => {
-            let {listener, useCapture} = e
-            target.removeEventListener(type, listener, useCapture)
-          })
-        }
-      })
-
-      return true
     }
     // ---------------------------------------------
 
@@ -174,7 +207,8 @@ const payload_view = function(){
       ${old_style || ''}
 
       <style>
-        body > div[class] {display: none !important;}
+        body {margin: 0}
+        body > div[class] {display: none !important}
       </style>
 `
     return new_head
@@ -208,26 +242,57 @@ const payload_view = function(){
       window[fn] = new_js[fn]
     }
 
-    poll_for_ready()
+    setTimeout(poll_for_ready, 0)
   }
 
   update_page_html()
 }
 
+const payload_view_html5 = function(){
+  const video_html  = document.querySelector('#player_container video').outerHTML
+
+  document.head.innerHTML = '<style>body {margin: 0} body > div[class] {display: none !important} video {width: auto; max-width: 100%; height: 100%}</style>'
+  document.body.innerHTML = '<div id="player_container">' + video_html + '</div>'
+
+  setTimeout(
+    function(){
+      window['maintainFullHeight']('div#player_container > video')
+    },
+    0
+  )
+}
+
 const get_payload = function() {
+  const payload_view = (document.querySelector('#container + script') instanceof HTMLElement)
+    ? payload_view_clappr
+    : payload_view_html5
+
   const payload = (window.location.pathname === '/channels')
     ? payload_channels
     : payload_view
 
-  return payload
+  const inject_helpers = (payload === payload_view)
+
+  return {payload, inject_helpers}
 }
 
-const inject_function = function(_function){
-  let inline, script, head
+const inject_function = function(_function, name='', run=true, anonymously=true){
+  let declaration, inline, script, head
 
-  inline = document.createTextNode(
-    '(' + _function.toString() + ')()'
-  )
+  if (!name) {
+    run = true
+    anonymously = true
+  }
+
+  declaration = _function.toString()  // function(){}
+
+  inline = (!run)
+    ? `window['${name}'] = ${declaration};`
+    : (!anonymously)
+      ? `window['${name}'] = ${declaration}; window['${name}']()`
+      : `(${declaration})()`
+
+  inline = document.createTextNode(inline)
 
   script = document.createElement('script')
   script.appendChild(inline)
@@ -236,13 +301,20 @@ const inject_function = function(_function){
   head.appendChild(script)
 }
 
-if (document.readyState === 'complete'){
-  let payload = get_payload()
+const document_is_ready = function() {
+  let {payload, inject_helpers} = get_payload()
+
   inject_function(payload)
+
+  if (inject_helpers)
+    payload_view_helpers['INJECT']()
+}
+
+if (document.readyState === 'complete'){
+  document_is_ready()
 }
 else {
   document.addEventListener("DOMContentLoaded", function(event) {
-    let payload = get_payload()
-    inject_function(payload)
+    document_is_ready()
   })
 }
