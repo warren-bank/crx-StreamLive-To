@@ -12,8 +12,8 @@ Chromium browser extension:
 * there is no user interface (UI)
 * the extension works silently in the background
   * on pages that list available channels:
-    * load many more channels per page
-    * filter the channels to only display only the ones that are free to access
+    * loads many more channels per page
+    * filters the channels to only display only the ones that are free to access
   * on pages containing an embedded video player:
     * removes all page content except the embedded video player
     * dramatically reduces CPU load
