@@ -24,17 +24,20 @@ Chromium browser extension:
 #### manual steps needed to remove anonymous window event listeners:
 
 * on pages containing an embedded video player:
-  * instructions:
-    * open DevTools
-    * enter into the console:
-      ```javascript
-        removeEventListeners(window)
-      ```
   * summary:
     * these listeners open new browser tabs to nasty websites every time the 'mousedown' event fires on window
     * unfortunately, the API needed to remove them is only available in DevTools
+  * instructions:
+    * toggle DevTools open/closed (_Ctrl+Shift+I_)
+  * under the hood:
+    * when DevTools is opened
+      * the extension runs the following code in the context of the DevTools console:
+        ```javascript
+          removeEventListeners(window)
+        ```
+  * implementation details:
     * `removeEventListeners` is a helper function added by the extension
-    * the _Console Utilities API_ it depends upon is [getEventListeners](https://developers.google.com/web/tools/chrome-devtools/console/utilities#geteventlistenersobject)
+      * the _Console Utilities API_ it depends upon is [getEventListeners](https://developers.google.com/web/tools/chrome-devtools/console/utilities#geteventlistenersobject)
 
 #### Legal:
 

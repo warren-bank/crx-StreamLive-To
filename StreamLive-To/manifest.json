@@ -1,6 +1,6 @@
 {
   "name": "StreamLive To",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Removes clutter and reduces CPU load.",
   "content_scripts": [{
     "matches": ["*://www.streamlive.to/channels","*://www.streamlive.to/view/*"],
@@ -8,6 +8,7 @@
     "run_at": "document_start",
     "js": ["content.js"]
   }],
+  "devtools_page": "devtools.html",
   "icons": {
      "16": "img/icon16.png",
      "48": "img/icon48.png",
