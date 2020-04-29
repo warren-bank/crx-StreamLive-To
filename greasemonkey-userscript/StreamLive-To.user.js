@@ -1,8 +1,11 @@
 // ==UserScript==
 // @name         StreamLive To
 // @description  Transfers video stream to alternate video players: WebCast-Reloaded, ExoAirPlayer.
-// @version      0.1.0
-// @match        *://www.streamlive.to/view/*
+// @version      0.2.0
+// @match        *://streamlive.to/view/*
+// @match        *://streamlive.to/channels
+// @match        *://*.streamlive.to/view/*
+// @match        *://*.streamlive.to/channels
 // @icon         https://streamlive.to/favicon.ico
 // @run-at       document-idle
 // @homepage     https://github.com/warren-bank/crx-StreamLive-To/tree/greasemonkey-userscript
@@ -19,62 +22,131 @@
 var user_options = {
   "script_injection_delay_ms":   0,
   "open_in_webcast_reloaded":    false,
-  "open_in_exoairplayer_sender": true
+  "open_in_exoairplayer_sender": true,
+  "filter_premium_channels":     true
 }
 
 var payload = function(){
-  let webcast_reloaded_url, exoairplayer_url
+  const process_video_page = function() {
+    const get_video_src = function() {
+      let sourcecode = document.querySelector('#container + script').innerHTML
+      let pattern    = /source: ([a-z0-9_]+)\(\),/i
+      let methodname = sourcecode.match(pattern)
 
-  const get_video_src = function() {
-    let sourcecode = document.querySelector('#container + script').innerHTML
-    let pattern    = /source: ([a-z0-9_]+)\(\),/i
-    let methodname = sourcecode.match(pattern)
+      if (!methodname || (methodname.length < 2)) return null
+      methodname = methodname[1]
 
-    if (!methodname || (methodname.length < 2)) return null
-    methodname = methodname[1]
+      let method_fn = window[methodname]
+      if (typeof method_fn !== 'function') return null
 
-    let method_fn = window[methodname]
-    if (typeof method_fn !== 'function') return null
+      let video_src = method_fn()
+      if (!video_src) return null
 
-    let video_src = method_fn()
-    if (!video_src) return null
+      if (video_src[0] === '/')
+        video_src = top.location.protocol + video_src
 
-    if (video_src[0] === '/')
-      video_src = top.location.protocol + video_src
-
-    return video_src
-  }
-
-  const hls_url = get_video_src()
-  if (!hls_url) return
-
-  if (hls_url) {
-    let encoded_hls_url, webcast_reloaded_base
-    let encoded_referer_url, exoairplayer_base
-
-    encoded_hls_url       = encodeURIComponent(encodeURIComponent(btoa(hls_url)))
-    webcast_reloaded_base = {
-      "https": "https://warren-bank.github.io/crx-webcast-reloaded/external_website/index.html",
-      "http":  "http://webcast-reloaded.surge.sh/index.html"
+      return video_src
     }
-    webcast_reloaded_base = (hls_url.toLowerCase().indexOf('https:') === 0)
-                              ? webcast_reloaded_base.https
-                              : webcast_reloaded_base.http
-    webcast_reloaded_url  = webcast_reloaded_base + '#/watch/' + encoded_hls_url
 
-    encoded_referer_url   = encodeURIComponent(encodeURIComponent(btoa(top.location.href)))
-    exoairplayer_base     = 'http://webcast-reloaded.surge.sh/airplay_sender.html'
-    exoairplayer_url      = exoairplayer_base  + '#/watch/' + encoded_hls_url + '/referer/' + encoded_referer_url
+    const hls_url = get_video_src()
+
+    if (hls_url) {
+      let encoded_hls_url, webcast_reloaded_base, webcast_reloaded_url
+      let encoded_referer_url, exoairplayer_base, exoairplayer_url
+
+      encoded_hls_url       = encodeURIComponent(encodeURIComponent(btoa(hls_url)))
+      webcast_reloaded_base = {
+        "https": "https://warren-bank.github.io/crx-webcast-reloaded/external_website/index.html",
+        "http":  "http://webcast-reloaded.surge.sh/index.html"
+      }
+      webcast_reloaded_base = (hls_url.toLowerCase().indexOf('https:') === 0)
+                                ? webcast_reloaded_base.https
+                                : webcast_reloaded_base.http
+      webcast_reloaded_url  = webcast_reloaded_base + '#/watch/' + encoded_hls_url
+
+      encoded_referer_url   = encodeURIComponent(encodeURIComponent(btoa(top.location.href)))
+      exoairplayer_base     = 'http://webcast-reloaded.surge.sh/airplay_sender.html'
+      exoairplayer_url      = exoairplayer_base  + '#/watch/' + encoded_hls_url + '/referer/' + encoded_referer_url
+
+      if (window.open_in_webcast_reloaded && webcast_reloaded_url) {
+        top.location = webcast_reloaded_url
+        return
+      }
+
+      if (window.open_in_exoairplayer_sender && exoairplayer_url) {
+        top.location = exoairplayer_url
+        return
+      }
+    }
   }
 
-  if (window.open_in_webcast_reloaded && webcast_reloaded_url) {
-    top.location = webcast_reloaded_url
-    return
+  const process_channels_page = function() {
+    const $ = window.jQuery
+    if (!$) return
+
+    const channels_to_load = 200
+
+    const filter_channels = function() {
+      let channels = $('#loadChannels > div.ml-item')
+      channels.each(function(i, el){
+        let channel = $(el)
+        let quality = channel.find('.mli-quality').text()
+        if (quality === 'Premium') {
+          channel.remove()
+        }
+        else {
+          channel.find('a[href]').each(function(i,el) {
+            el.href = el.href.replace('/info/', '/view/')
+          })
+        }
+      })
+    }
+
+    window.loadChannel = function(){
+      window.category = $("#category").val()
+      window.language = $("#language").val()
+      window.sortBy = $("#sortBy").val()
+      window.query = $("#q").val()
+      window.itempp = channels_to_load
+      if("Find a channel"==query) {
+          query = ""
+      }
+      $("#loadChannels").load(
+        "/channelsPages.php",
+        {
+          "page": window.page,
+          "category": window.category,
+          "language": window.language,
+          "sortBy": window.sortBy,
+          "query": window.query,
+          "list": window.list,
+          "itemspp": window.itempp
+        },
+        filter_channels
+      )
+    }
+
+    $(document).ready(function(){
+      try {
+        window.page = 1
+        window.loadChannel()
+      }
+      catch(e){}
+    })
   }
 
-  if (window.open_in_exoairplayer_sender && exoairplayer_url) {
-    top.location = exoairplayer_url
-    return
+  const url_path = window.location.pathname.toLowerCase()
+
+  if (url_path.indexOf('/view/') === 0) {
+    // video page
+    if (window.open_in_webcast_reloaded || window.open_in_exoairplayer_sender)
+      process_video_page()
+  }
+
+  if (url_path.indexOf('/channels') === 0) {
+    // channels page
+    if (window.filter_premium_channels)
+      process_channels_page()
   }
 }
 
@@ -110,6 +182,7 @@ var inject_options = function(){
   var _function = `function(){
     window.open_in_webcast_reloaded    = ${user_options['open_in_webcast_reloaded']}
     window.open_in_exoairplayer_sender = ${user_options['open_in_exoairplayer_sender']}
+    window.filter_premium_channels     = ${user_options['filter_premium_channels']}
   }`
   inject_function(_function)
 }
@@ -119,11 +192,9 @@ var inject_options_then_function = function(_function){
   inject_function(_function)
 }
 
-if (user_options['open_in_webcast_reloaded'] || user_options['open_in_exoairplayer_sender']) {
-  setTimeout(
-    function(){
-      inject_options_then_function(payload)
-    },
-    user_options['script_injection_delay_ms']
-  )
-}
+setTimeout(
+  function(){
+    inject_options_then_function(payload)
+  },
+  user_options['script_injection_delay_ms']
+)
