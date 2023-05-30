@@ -1,11 +1,16 @@
 ### [StreamLive To](https://github.com/warren-bank/crx-StreamLive-To/tree/webmonkey-userscript/es5)
 
-[Userscript](https://github.com/warren-bank/crx-StreamLive-To/raw/webmonkey-userscript/es5/webmonkey-userscript/StreamLive-To.user.js) to run in the [WebMonkey](https://github.com/warren-bank/Android-WebMonkey) application for Android.
+[Userscript](https://github.com/warren-bank/crx-StreamLive-To/raw/webmonkey-userscript/es5/webmonkey-userscript/StreamLive-To.user.js) for [streamlive.to](https://www.streamlive.to/) to run in:
+* the [WebMonkey](https://github.com/warren-bank/Android-WebMonkey) application for Android
 
-* [this branch](https://github.com/warren-bank/crx-StreamLive-To/tree/webmonkey-userscript/es5) contains the ES5 variation of this userscript
-* [another branch](https://github.com/warren-bank/crx-StreamLive-To/tree/webmonkey-userscript/es6) contains an ES6 variation
-* ES5 is mainly intended for use in versions of Android prior to 5.0
-  - running a version of Android System WebView that cannot be updated and cannot run modern javascript
+Its purpose is to:
+* conditionally filter the list of channels
+  - display only the free channels, all on a single page
+* when the page for a particular channel is loaded, transfer its video stream to the top-level tool on the [Webcast-Reloaded](https://github.com/warren-bank/crx-webcast-reloaded) external [website](https://warren-bank.github.io/crx-webcast-reloaded/external_website/index.html)
+  - mainly for use with:
+    * _Google Chromecast_
+    * [_ExoAirPlayer_](https://github.com/warren-bank/Android-ExoPlayer-AirPlay-Receiver)
+    * [_HLS-Proxy_](https://github.com/warren-bank/HLS-Proxy)
 
 #### Legal:
 
