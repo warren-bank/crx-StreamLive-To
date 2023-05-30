@@ -1,4 +1,4 @@
-### [StreamLive To](https://github.com/warren-bank/crx-StreamLive-To)
+### [StreamLive To](https://github.com/warren-bank/crx-StreamLive-To/tree/master)
 
 #### Summary:
 
@@ -6,6 +6,13 @@ Chromium browser extension:
 * works on pages that are hosted at:
   * [`www.streamlive.to/channels`](https://www.streamlive.to/channels)
   * [`www.streamlive.to/view/*`](https://www.streamlive.to/channels)
+
+#### Stale Branch:
+
+* this branch is no-longer maintained
+  - the [`webmonkey-userscript/es5`](https://github.com/warren-bank/crx-StreamLive-To/tree/webmonkey-userscript/es5) branch:
+    * includes a userscript that provides enhanced functionality
+    * supports older browsers (ex: Android 4.x WebView)
 
 #### UI:
 
