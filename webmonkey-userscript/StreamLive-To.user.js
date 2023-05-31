@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         StreamLive To
 // @description  Watch videos in external player.
-// @version      2.0.0
+// @version      2.1.0
 // @match        *://streamlive.to/*
 // @match        *://*.streamlive.to/*
 // @icon         https://streamlive.to/favicon.ico
@@ -22,6 +22,7 @@ var user_options = {
   "common": {
     "show_user_notifications":      true,
     "filter_premium_channels":      true,
+    "redirect_to_channels":         true,
     "init_delay_ms":                1000
   },
   "webmonkey": {
@@ -194,9 +195,15 @@ var init = function() {
     return
   }
 
-  // fallback
-  //   => redirect to channels list page
-  unsafeWindow.location = unsafeWindow.location.protocol + '//www.streamlive.to/channels'
+  if (url_path.indexOf('/search/') === 0) {
+    return
+  }
+
+  if (user_options.common.redirect_to_channels) {
+    // fallback
+    //   => redirect to channels list page
+    unsafeWindow.location = unsafeWindow.location.protocol + '//www.streamlive.to/channels'
+  }
 }
 
 // =============================================================================
@@ -270,6 +277,7 @@ var process_channels_page = function() {
     }
 
     var $body = $('body')
+    var $form = $('form#search').first().detach()
     if ($body.length !== 1) throw ''
 
     var results_max = 200
@@ -277,6 +285,18 @@ var process_channels_page = function() {
     var request_num = Math.ceil(200/8)
 
     $body.empty()
+
+    if ($form.length === 1) {
+      $form.off()
+      $form.find('> div > *').css({'float': 'left'})
+      $form.find('> div').append(
+        $('<div></div>').css({'width': '100%', 'height': '4px', 'clear': 'both'})
+      )
+      $form.find('input').off()
+      $form.find('button#formSearch').text('Search').off()
+
+      $body.append($form)
+    }
 
     for (var page=1; page <= request_num; page++) {
       $.ajax({
